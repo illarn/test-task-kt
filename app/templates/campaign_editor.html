@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign_name or 'Редактор кампаний' }}{% endblock %}
+
+{% block styles %}
+body { max-width: 52rem; }
+select { font: inherit; padding: .55rem .7rem; }
+.campaign { margin-top: 1rem; padding: 1rem; border: 1px solid #bbb; border-radius: .25rem; }
+.campaign h1, .stream h2 { margin-top: 0; }
+.campaign > nav { margin-bottom: 1rem; }
+.stream { margin-top: 1rem; padding: .75rem; }
+.stream.dirty { background: #fff4c7; color: #201a08; }
+.removed { color: #595959; background: #ededed; }
+.offers { width: 100%; border-collapse: collapse; text-align: left; }
+.offers td, .offers th { padding: .5rem; vertical-align: top; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+{% endblock %}
+
+{% block content %}
+<section class="campaign">
+  <h1>{{ campaign_name or 'Редактор кампаний' }}</h1>
+  {% if campaign_url %}
+    <nav aria-label="Кампания в Keitaro">
+      <a href="{{ campaign_url }}" target="_blank" rel="noopener">Открыть в Keitaro</a>
+    </nav>
+  {% endif %}
+  <form method="get" action="{{ url_for('campaign_editor') }}">
+    <label>
+      Кампания
+      <select name="campaign_id" required>
+        <option value="">Выберите кампанию</option>
+        {% for campaign in campaigns %}
+          <option value="{{ campaign.id }}"{% if campaign.id == campaign_id %} selected{% endif %}>
+            №{{ campaign.id }} · {{ campaign.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Загрузить потоки</button>
+  </form>
+
+  {% if error and error_stream_id is none %}<p role="alert">{{ error }}</p>{% endif %}
+
+  <datalist id="editor-offers">
+    {% for offer in offers %}
+      <option value="{{ offer.id }} — {{ offer.name }}"></option>
+    {% endfor %}
+  </datalist>
+
+  {% for stream in streams %}
+    {% if stream.editable %}
+      <section class="stream{% if stream.dirty %} dirty{% endif %}">
+        <h2>{{ stream.name }}</h2>
+        {% if stream.dirty %}<p>Есть неопубликованные изменения.</p>{% endif %}
+        {% if stream.conflict %}
+          <p role="alert">Поток изменился в Keitaro. Отмените черновик, чтобы загрузить изменения.</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('update_campaign_editor') }}">
+          <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+          <input type="hidden" name="stream_id" value="{{ stream.id }}">
+          <label>
+            Новый оффер
+            <input name="offer" list="editor-offers" placeholder="Название или ID">
+          </label>
+          {% if error and stream.id == error_stream_id %}<p role="alert">{{ error }}</p>{% endif %}
+          <button name="command" value="add">Добавить</button>
+          <table class="offers">
+            <thead><tr><th>Оффер</th><th>Доля</th><th>Действия</th></tr></thead>
+            <tbody>
+            {% for offer in stream.offers %}
+              <tr{% if offer.removed %} class="removed"{% endif %}>
+                <td>
+                  №{{ offer.offer_id }} {{ offer_names.get(offer.offer_id, '') }}
+                  {% if offer.removed %}<small>Удалён</small>{% elif offer.state != 'active' %}<small>Отключён</small>{% endif %}
+                </td>
+                <td>{{ 0 if offer.removed else offer.share }}%</td>
+                <td><div class="actions">
+                  {% if offer.removed %}
+                    <button name="command" value="restore:{{ offer.offer_id }}">Восстановить</button>
+                  {% else %}
+                    <button name="command" value="remove:{{ offer.offer_id }}">Удалить</button>
+                    {% if offer.state == 'active' %}
+                      {% if offer.pinned %}
+                        <button name="command" value="unpin:{{ offer.offer_id }}">Открепить долю</button>
+                      {% else %}
+                        <button name="command" value="pin:{{ offer.offer_id }}">Закрепить долю</button>
+                      {% endif %}
+                    {% endif %}
+                  {% endif %}
+                </div></td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3">В потоке пока нет офферов.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+
+          {% if stream.dirty %}
+            <div class="actions">
+              <button name="command" value="push"{% if stream.conflict %} disabled{% endif %}>Опубликовать</button>
+              <button name="command" value="cancel">Отменить черновик</button>
+            </div>
+          {% endif %}
+        </form>
+      </section>
+    {% else %}
+      <p class="stream">{{ stream.name }}</p>
+    {% endif %}
+  {% endfor %}
+  {% if campaign_id and not error and not has_offer_stream %}
+    <section class="stream">
+      <h2>Офферы</h2>
+      <p>В кампании нет потока для офферов.</p>
+    </section>
+  {% endif %}
+</section>
+{% endblock %}

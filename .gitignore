@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Локальное окружение
+.env
+.env.*
+!.env.example
+
+# Локальные базы SQLite
+/*.sqlite3*

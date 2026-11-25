@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav aria-label="Кампании">
+  <a href="{{ url_for('new_campaign') }}">Создать кампанию</a>
+  <a href="{{ url_for('campaign_editor') }}">Редактировать кампанию</a>
+</nav>
+{% endblock %}
